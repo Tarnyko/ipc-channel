@@ -19,8 +19,10 @@ use std::cell::Cell;
 use std::cmp;
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::env;
 use std::error::Error as StdError;
 use std::ffi::CString;
+use std::fs;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::BuildHasherDefault;
 use std::io;
@@ -35,7 +37,8 @@ use std::time::{Duration, UNIX_EPOCH};
 use std::thread;
 use mio::unix::EventedFd;
 use mio::{Poll, Token, Events, Ready, PollOpt};
-use tempfile::{Builder, TempDir};
+//use tempfile::{Builder, TempDir};
+use rand::{thread_rng, Rng};
 
 const MAX_FDS_IN_CMSG: u32 = 64;
 
@@ -47,12 +50,14 @@ const SCM_RIGHTS: c_int = 0x01;
 const RESERVED_SIZE: usize = 32;
 
 #[cfg(target_os = "linux")]
-const SOCK_FLAGS: c_int = libc::SOCK_CLOEXEC;
+//const SOCK_FLAGS: c_int = libc::SOCK_CLOEXEC;
+const SOCK_FLAGS: c_int = 0;
 #[cfg(not(target_os = "linux"))]
 const SOCK_FLAGS: c_int = 0;
 
 #[cfg(target_os = "linux")]
-const RECVMSG_FLAGS: c_int = libc::MSG_CMSG_CLOEXEC;
+//const RECVMSG_FLAGS: c_int = libc::MSG_CMSG_CLOEXEC;
+const RECVMSG_FLAGS: c_int = 0;
 #[cfg(not(target_os = "linux"))]
 const RECVMSG_FLAGS: c_int = 0;
 
@@ -596,7 +601,7 @@ pub struct OsIpcOneShotServer {
     // Object representing the temporary directory the socket was created in.
     // The directory is automatically deleted (along with the socket inside it)
     // when this field is dropped.
-    _temp_dir: TempDir,
+    //_temp_dir: TempDir,
 }
 
 impl Drop for OsIpcOneShotServer {
@@ -612,23 +617,33 @@ impl OsIpcOneShotServer {
     pub fn new() -> Result<(OsIpcOneShotServer, String),UnixError> {
         unsafe {
             let fd = libc::socket(libc::AF_UNIX, SOCK_SEQPACKET | SOCK_FLAGS, 0);
-            let temp_dir = Builder::new().tempdir().unwrap();
-            let socket_path = temp_dir.path().join("socket");
+            //let temp_dir = Builder::new().tempdir().unwrap();
+            //let socket_path = temp_dir.path().join("socket");
+            //let path_string = socket_path.to_str().unwrap();
+            let mut r = thread_rng();
+            let mut temp_dir = env::temp_dir();
+            let subdir: String = r.gen_ascii_chars().take(16).collect();
+            temp_dir.push(&subdir);
+            let socket_path = temp_dir.as_path().join("socket");
             let path_string = socket_path.to_str().unwrap();
+
+            fs::create_dir(&temp_dir).expect("Could not create temporary directory for socket");
 
             let path_c_string = CString::new(path_string).unwrap();
             let (sockaddr, len) = new_sockaddr_un(path_c_string.as_ptr());
             if libc::bind(fd, &sockaddr as *const _ as *const sockaddr, len as socklen_t) != 0 {
+                let _ = fs::remove_dir(&temp_dir);
                 return Err(UnixError::last());
             }
 
             if libc::listen(fd, 10) != 0 {
+                let _ = fs::remove_dir(&temp_dir);
                 return Err(UnixError::last())
             }
 
             Ok((OsIpcOneShotServer {
                 fd: fd,
-                _temp_dir: temp_dir,
+                //_temp_dir: temp_dir,
             }, path_string.to_string()))
         }
     }
@@ -1031,7 +1046,8 @@ fn create_shmem(name: CString, length: usize) -> c_int {
 #[cfg(all(feature="memfd", target_os="linux"))]
 fn create_shmem(name: CString, length: usize) -> c_int {
     unsafe {
-        let fd = memfd_create(name.as_ptr(), libc::MFD_CLOEXEC as usize);
+        //let fd = memfd_create(name.as_ptr(), libc::MFD_CLOEXEC as usize);
+        let fd = memfd_create(name.as_ptr(), 0 as usize);
         assert!(fd >= 0);
         assert!(libc::ftruncate(fd, length as off_t) == 0);
         fd
