@@ -595,6 +595,7 @@ impl OsOpaqueIpcChannel {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct OsIpcOneShotServer {
     fd: c_int,
 
@@ -604,14 +605,14 @@ pub struct OsIpcOneShotServer {
     //_temp_dir: TempDir,
 }
 
-impl Drop for OsIpcOneShotServer {
-    fn drop(&mut self) {
-        unsafe {
-            let result = libc::close(self.fd);
-            assert!(thread::panicking() || result == 0);
-        }
-    }
-}
+//impl Drop for OsIpcOneShotServer {
+//    fn drop(&mut self) {
+//        unsafe {
+//            let result = libc::close(self.fd);
+//            assert!(thread::panicking() || result == 0);
+//        }
+//    }
+//}
 
 impl OsIpcOneShotServer {
     pub fn new() -> Result<(OsIpcOneShotServer, String),UnixError> {
@@ -648,7 +649,7 @@ impl OsIpcOneShotServer {
         }
     }
 
-    pub fn accept(self) -> Result<(OsIpcReceiver,
+    pub fn accept(&self) -> Result<(OsIpcReceiver,
                                    Vec<u8>,
                                    Vec<OsOpaqueIpcChannel>,
                                    Vec<OsIpcSharedMemory>),UnixError> {
@@ -664,6 +665,13 @@ impl OsIpcOneShotServer {
             let receiver = OsIpcReceiver::from_fd(client_fd);
             let (data, channels, shared_memory_regions) = receiver.recv()?;
             Ok((receiver, data, channels, shared_memory_regions))
+        }
+    }
+
+    pub fn close(&mut self) {
+        unsafe {
+            let result = libc::close(self.fd);
+            assert!(thread::panicking() || result == 0);
         }
     }
 }

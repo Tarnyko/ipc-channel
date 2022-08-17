@@ -763,6 +763,7 @@ impl Serialize for OpaqueIpcReceiver {
 /// assert_eq!(data, vec![0x48, 0x65, 0x6b, 0x6b, 0x6f, 0x00]);
 /// ```
 /// [IpcSender]: struct.IpcSender.html
+#[derive(Copy, Clone)]
 pub struct IpcOneShotServer<T> {
     os_server: OsIpcOneShotServer,
     phantom: PhantomData<T>,
@@ -777,7 +778,7 @@ impl<T> IpcOneShotServer<T> where T: for<'de> Deserialize<'de> + Serialize {
         }, name))
     }
 
-    pub fn accept(self) -> Result<(IpcReceiver<T>,T), bincode::Error> {
+    pub fn accept(&self) -> Result<(IpcReceiver<T>,T), bincode::Error> {
         let (os_receiver, data, os_channels, os_shared_memory_regions) =
             self.os_server.accept()?;
         let value = OpaqueIpcMessage {
@@ -792,6 +793,10 @@ impl<T> IpcOneShotServer<T> where T: for<'de> Deserialize<'de> + Serialize {
             os_receiver: os_receiver,
             phantom: PhantomData,
         }, value))
+    }
+
+    pub fn close(&mut self)  {
+        self.os_server.close();
     }
 }
 

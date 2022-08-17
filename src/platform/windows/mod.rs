@@ -988,7 +988,7 @@ enum BlockingMode {
     Timeout(Duration),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct OsIpcReceiver {
     /// The receive handle and its associated state.
     ///
@@ -1721,6 +1721,7 @@ impl OsIpcSharedMemory {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct OsIpcOneShotServer {
     receiver: OsIpcReceiver,
 }
@@ -1738,7 +1739,7 @@ impl OsIpcOneShotServer {
         ))
     }
 
-    pub fn accept(self) -> Result<(OsIpcReceiver,
+    pub fn accept(&self) -> Result<(OsIpcReceiver,
                                    Vec<u8>,
                                    Vec<OsOpaqueIpcChannel>,
                                    Vec<OsIpcSharedMemory>),WinError> {
@@ -1746,6 +1747,9 @@ impl OsIpcOneShotServer {
         receiver.accept()?;
         let (data, channels, shmems) = receiver.recv()?;
         Ok((receiver, data, channels, shmems))
+    }
+
+    pub fn close(&mut self) {
     }
 }
 

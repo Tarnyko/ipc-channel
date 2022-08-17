@@ -126,7 +126,7 @@ pub fn channel() -> Result<(OsIpcSender, OsIpcReceiver),MachError> {
     Ok((sender, receiver))
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub struct OsIpcReceiver {
     port: Cell<mach_port_t>,
 }
@@ -791,16 +791,17 @@ fn select(port: mach_port_t, blocking_mode: BlockingMode)
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct OsIpcOneShotServer {
     receiver: OsIpcReceiver,
     name: String,
 }
 
-impl Drop for OsIpcOneShotServer {
-    fn drop(&mut self) {
-        drop(OsIpcReceiver::unregister_global_name(mem::replace(&mut self.name, String::new())));
-    }
-}
+//impl Drop for OsIpcOneShotServer {
+//    fn drop(&mut self) {
+//        drop(OsIpcReceiver::unregister_global_name(mem::replace(&mut self.name, String::new())));
+//    }
+//}
 
 impl OsIpcOneShotServer {
     pub fn new() -> Result<(OsIpcOneShotServer, String),MachError> {
@@ -812,12 +813,16 @@ impl OsIpcOneShotServer {
         }, name))
     }
 
-    pub fn accept(self) -> Result<(OsIpcReceiver,
+    pub fn accept(&self) -> Result<(OsIpcReceiver,
                                    Vec<u8>,
                                    Vec<OsOpaqueIpcChannel>,
                                    Vec<OsIpcSharedMemory>),MachError> {
         let (bytes, channels, shared_memory_regions) = self.receiver.recv()?;
         Ok((self.receiver.consume(), bytes, channels, shared_memory_regions))
+    }
+
+    pub fn close(&mut self) {
+        drop(OsIpcReceiver::unregister_global_name(mem::replace(&mut self.name, String::new())));
     }
 }
 

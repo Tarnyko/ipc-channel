@@ -63,7 +63,7 @@ pub fn channel() -> Result<(OsIpcSender, OsIpcReceiver), ChannelError> {
     ))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct OsIpcReceiver {
     receiver: RefCell<Option<crossbeam_channel::Receiver<ChannelMessage>>>,
 }
@@ -249,6 +249,7 @@ impl OsIpcSelectionResult {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct OsIpcOneShotServer {
     receiver: OsIpcReceiver,
     name: String,
