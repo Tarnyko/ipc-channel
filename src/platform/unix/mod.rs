@@ -29,6 +29,7 @@ use std::io;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, RangeFrom};
+use std::path::{PathBuf};
 use std::ptr;
 use std::slice;
 use std::sync::Arc;
@@ -595,7 +596,7 @@ impl OsOpaqueIpcChannel {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct OsIpcOneShotServer {
     fd: c_int,
 
@@ -603,6 +604,7 @@ pub struct OsIpcOneShotServer {
     // The directory is automatically deleted (along with the socket inside it)
     // when this field is dropped.
     //_temp_dir: TempDir,
+    _temp_dir: PathBuf,
 }
 
 //impl Drop for OsIpcOneShotServer {
@@ -633,18 +635,18 @@ impl OsIpcOneShotServer {
             let path_c_string = CString::new(path_string).unwrap();
             let (sockaddr, len) = new_sockaddr_un(path_c_string.as_ptr());
             if libc::bind(fd, &sockaddr as *const _ as *const sockaddr, len as socklen_t) != 0 {
-                let _ = fs::remove_dir(&temp_dir);
+                let _ = fs::remove_dir_all(&temp_dir);
                 return Err(UnixError::last());
             }
 
             if libc::listen(fd, 10) != 0 {
-                let _ = fs::remove_dir(&temp_dir);
+                let _ = fs::remove_dir_all(&temp_dir);
                 return Err(UnixError::last())
             }
 
             Ok((OsIpcOneShotServer {
                 fd: fd,
-                //_temp_dir: temp_dir,
+                _temp_dir: temp_dir,
             }, path_string.to_string()))
         }
     }
@@ -673,6 +675,8 @@ impl OsIpcOneShotServer {
             let result = libc::close(self.fd);
             assert!(thread::panicking() || result == 0);
         }
+        let _ = fs::remove_file((&self._temp_dir).join("socket"));
+        let _ = fs::remove_dir(&self._temp_dir);
     }
 }
 

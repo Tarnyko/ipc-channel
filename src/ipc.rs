@@ -763,7 +763,7 @@ impl Serialize for OpaqueIpcReceiver {
 /// assert_eq!(data, vec![0x48, 0x65, 0x6b, 0x6b, 0x6f, 0x00]);
 /// ```
 /// [IpcSender]: struct.IpcSender.html
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct IpcOneShotServer<T> {
     os_server: OsIpcOneShotServer,
     phantom: PhantomData<T>,
